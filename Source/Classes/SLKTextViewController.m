@@ -977,7 +977,8 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
         CGFloat maxKeyboardHeight = keyboardFrame.origin.y + keyboardFrame.size.height;
         maxKeyboardHeight -= [self appropriateBottomMarginToWindow];
 
-        return (floor(maxKeyboardHeight) > CGRectGetHeight(self.view.bounds));
+        return NO;
+        //return (floor(maxKeyboardHeight) > CGRectGetHeight(self.view.bounds));
     }
     else {
         return NO;
