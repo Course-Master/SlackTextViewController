@@ -478,11 +478,25 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 
 - (CGFloat)appropriateBottomMarginToWindow
 {
-    if (self.tabBarController.tabBar.isHidden || self.hidesBottomBarWhenPushed)  {
-        return 0.0;
+    UIWindow *window = [UIApplication sharedApplication].keyWindow;
+    
+    CGRect windowFrame = [window convertRect:window.frame fromView:self.view];
+    windowFrame.origin = CGPointZero;
+    
+    CGRect viewRect = [window convertRect:self.view.frame fromView:nil];
+    
+    CGFloat bottomWindow = CGRectGetMaxY(windowFrame);
+    CGFloat bottomView = CGRectGetMaxY(viewRect);
+    
+    // Retrieve the status bar's height when the in-call status bar is displayed
+    if (CGRectGetHeight([UIApplication sharedApplication].statusBarFrame) > 20.0) {
+        bottomView += CGRectGetHeight([UIApplication sharedApplication].statusBarFrame)/2.0;
     }
     
-    return CGRectGetHeight(self.tabBarController.tabBar.frame);
+    CGFloat margin = bottomWindow - bottomView;
+    
+    // Do NOT consider a status bar height gap
+    return (margin > 20) ? margin : 0.0;
 }
 
 - (NSString *)appropriateKeyboardNotificationName:(NSNotification *)notification
@@ -582,6 +596,17 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 - (void)setUndoShakingEnabled:(BOOL)enabled
 {
     _shakeToClearEnabled = enabled;
+}
+
+- (void)setKeyboardPanningEnabled:(BOOL)enabled
+{
+    if (self.keyboardPanningEnabled == enabled) {
+        return;
+    }
+    
+    self.scrollViewProxy.keyboardDismissMode = enabled ? UIScrollViewKeyboardDismissModeInteractive : UIScrollViewKeyboardDismissModeNone;
+    
+    _keyboardPanningEnabled = enabled;
 }
 
 - (BOOL)updateKeyboardStatus:(SLKKeyboardStatus)status
@@ -814,8 +839,16 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
         return;
     }
     
+    if (!SLK_IS_LANDSCAPE) {
+        [self.textView setText:text];
+    }
+    
     [self.textInputbar beginTextEditing];
-    [self.textView setText:text];
+    
+    // Setting the text after calling -beginTextEditing is safer when in landscape orientation
+    if (SLK_IS_LANDSCAPE) {
+        [self.textView setText:text];
+    }
     
     [self.textView slk_scrollToCaretPositonAnimated:YES];
     
@@ -949,10 +982,6 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     else {
         return NO;
     }
-    
-    if (CGRectIsNull(keyboardFrame)) {
-        return NO;
-    }
 }
 
 - (void)reloadInputAccessoryViewIfNeeded
@@ -970,30 +999,6 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     else if (CGRectGetHeight(self.textView.inputAccessoryView.frame) != CGRectGetHeight(self.textInputbar.bounds)) {
         self.textView.inputAccessoryView = [self emptyInputAccessoryView];
         [self.textView refreshInputViews];
-    }
-}
-
-- (void)updateKeyboardDismissModeIfNeeded
-{
-    // Skips if the keyboard panning is disabled
-    if (!self.isKeyboardPanningEnabled) {
-        return;
-    }
-    
-    UIScrollView *scrollView = self.scrollViewProxy;
-    UIScrollViewKeyboardDismissMode dismissMode = scrollView.keyboardDismissMode;
-    
-    BOOL isPannable = self.textView.inputAccessoryView ? YES : NO;
-    
-    // Enables the keyboard dismiss mode
-    if (dismissMode == UIScrollViewKeyboardDismissModeNone && isPannable) {
-        scrollView.keyboardDismissMode = UIScrollViewKeyboardDismissModeInteractive;
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didChangeKeyboardFrame:) name:SLKInputAccessoryViewKeyboardFrameDidChangeNotification object:nil];
-    }
-    // Disables the keyboard dismiss mode
-    else if (dismissMode == UIScrollViewKeyboardDismissModeInteractive && !isPannable) {
-        scrollView.keyboardDismissMode = UIScrollViewKeyboardDismissModeNone;
-        [[NSNotificationCenter defaultCenter] removeObserver:self name:SLKInputAccessoryViewKeyboardFrameDidChangeNotification object:nil];
     }
 }
 
@@ -1140,7 +1145,6 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     
     // Updates the dismiss mode and input accessory view, if needed.
     [self reloadInputAccessoryViewIfNeeded];
-    [self updateKeyboardDismissModeIfNeeded];
 
     // Very important to invalidate this flag after the keyboard is dismissed or presented
     self.movingKeyboard = NO;
@@ -1777,6 +1781,9 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didPostSLKKeyboardNotification:) name:SLKKeyboardDidHideNotification object:nil];
 #endif
     
+    // Keyboard Accessory View notifications
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didChangeKeyboardFrame:) name:SLKInputAccessoryViewKeyboardFrameDidChangeNotification object:nil];
+
     // TextView notifications
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(willChangeTextViewText:) name:SLKTextViewTextWillChangeNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didChangeTextViewText:) name:UITextViewTextDidChangeNotification object:nil];
@@ -1790,6 +1797,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     
     // Application notifications
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(willTerminateApplication:) name:UIApplicationWillTerminateNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(willTerminateApplication:) name:UIApplicationDidReceiveMemoryWarningNotification object:nil];
 }
 
 - (void)unregisterNotifications
@@ -1808,6 +1816,9 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 #endif
     
     // TextView notifications
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:SLKInputAccessoryViewKeyboardFrameDidChangeNotification object:nil];
+    
+    // TextView notifications
     [[NSNotificationCenter defaultCenter] removeObserver:self name:UITextViewTextDidBeginEditingNotification object:nil];
     [[NSNotificationCenter defaultCenter] removeObserver:self name:UITextViewTextDidEndEditingNotification object:nil];
     [[NSNotificationCenter defaultCenter] removeObserver:self name:SLKTextViewTextWillChangeNotification object:nil];
@@ -1822,6 +1833,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     
     // Application notifications
     [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillTerminateNotification object:nil];
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidReceiveMemoryWarningNotification object:nil];
 }
 
 
