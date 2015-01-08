@@ -119,14 +119,11 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
         UITableViewStyle tableViewStyle = [[self class] tableViewStyleForCoder:decoder];
         UICollectionViewLayout *collectionViewLayout = [[self class] collectionViewLayoutForCoder:decoder];
         
-        if (tableViewStyle == UITableViewStylePlain || tableViewStyle == UITableViewStyleGrouped) {
-            self.scrollViewProxy = [self tableViewWithStyle:tableViewStyle];
-        }
-        else if ([collectionViewLayout isKindOfClass:[UICollectionViewLayout class]]) {
+        if ([collectionViewLayout isKindOfClass:[UICollectionViewLayout class]]) {
             self.scrollViewProxy = [self collectionViewWithLayout:collectionViewLayout];
         }
         else {
-            return nil;
+            self.scrollViewProxy = [self tableViewWithStyle:tableViewStyle];
         }
         
         [self commonInit];
@@ -328,16 +325,6 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 - (BOOL)isPresentedInPopover
 {
     return _presentedInPopover && SLK_IS_IPAD;
-}
-
-- (BOOL)isQuickTypeBarVisible
-{
-    CGFloat quickTypeBarHeight = self.keyboardHC.constant-minimumKeyboardHeight();
-    
-    if (SLK_IS_IOS8_AND_HIGHER && quickTypeBarHeight > 0.0 && self.textView.autocorrectionType != UITextAutocorrectionTypeNo) {
-        return YES;
-    }
-    return NO;
 }
 
 - (SLKTextView *)textView
@@ -935,7 +922,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     BOOL enable = !self.isAutoCompleting;
     
     // Skips if the QuickType Bar isn't visible and it's trying to disable it. And the inverted logic.
-    if (SLK_IS_IOS8_AND_HIGHER && ((enable == NO && !self.isQuickTypeBarVisible) || (enable == self.textView.isTypingSuggestionEnabled))) {
+    if (enable == self.textView.isTypingSuggestionEnabled) {
         return;
     }
     
@@ -1258,6 +1245,16 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     }
 }
 
+- (void)didDeleteInTextView:(NSNotification *)notification
+{
+    // Skips this if it's not the expected textView.
+    if (![self.textView isFirstResponder]) {
+        return;
+    }
+    
+    [self processTextForAutoCompletion];
+}
+
 - (void)willShowOrHideTypeIndicatorView:(NSNotification *)notification
 {
     SLKTypingIndicatorView *indicatorView = (SLKTypingIndicatorView *)notification.object;
@@ -1314,7 +1311,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 
 - (void)processTextForAutoCompletion
 {
-    if (self.isRotating) {
+    if (self.isRotating || self.textView.isFastDeleting) {
         return;
     }
     
@@ -1331,7 +1328,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     }
     
     // Process in the background
-    dispatch_async(dispatch_get_global_queue( DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void){
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void){
         
         NSRange range;
         NSString *word = [self.textView slk_wordAtCaretRange:&range];
@@ -1791,7 +1788,8 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didChangeTextViewContentSize:) name:SLKTextViewContentSizeDidChangeNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didChangeTextViewPasteboard:) name:SLKTextViewDidPasteItemNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didShakeTextView:) name:SLKTextViewDidShakeNotification object:nil];
-    
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didDeleteInTextView:) name:SLKTextViewDidFinishDeletingNotification object:nil];
+
     // TypeIndicator notifications
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(willShowOrHideTypeIndicatorView:) name:SLKTypingIndicatorViewWillShowNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(willShowOrHideTypeIndicatorView:) name:SLKTypingIndicatorViewWillHideNotification object:nil];
@@ -1827,7 +1825,8 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     [[NSNotificationCenter defaultCenter] removeObserver:self name:SLKTextViewContentSizeDidChangeNotification object:nil];
     [[NSNotificationCenter defaultCenter] removeObserver:self name:SLKTextViewDidPasteItemNotification object:nil];
     [[NSNotificationCenter defaultCenter] removeObserver:self name:SLKTextViewDidShakeNotification object:nil];
-    
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:SLKTextViewDidFinishDeletingNotification object:nil];
+
     // TypeIndicator notifications
     [[NSNotificationCenter defaultCenter] removeObserver:self name:SLKTypingIndicatorViewWillShowNotification object:nil];
     [[NSNotificationCenter defaultCenter] removeObserver:self name:SLKTypingIndicatorViewWillHideNotification object:nil];
