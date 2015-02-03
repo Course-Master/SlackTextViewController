@@ -8,6 +8,7 @@
 
 #import "MessageViewController.h"
 #import "MessageTableViewCell.h"
+#import "MessageTextView.h"
 #import "Message.h"
 
 #import <LoremIpsum/LoremIpsum.h>
@@ -33,7 +34,18 @@ static NSString *AutoCompletionCellIdentifier = @"AutoCompletionCell";
 {
     self = [super initWithTableViewStyle:UITableViewStylePlain];
     if (self) {
-        
+        // Register a subclass of SLKTextView, if you need any special appearance and/or behavior customisation.
+        [self registerClassForTextView:[MessageTextView class]];
+    }
+    return self;
+}
+
+- (id)initWithCoder:(NSCoder *)aDecoder
+{
+    self = [super initWithCoder:aDecoder];
+    if (self) {
+        // Register a subclass of SLKTextView, if you need any special appearance and/or behavior customisation.
+        [self registerClassForTextView:[MessageTextView class]];
     }
     return self;
 }
@@ -68,7 +80,6 @@ static NSString *AutoCompletionCellIdentifier = @"AutoCompletionCell";
     self.channels = @[@"General", @"Random", @"iOS", @"Bugs", @"Sports", @"Android", @"UI", @"SSB"];
     self.emojis = @[@"m", @"man", @"machine", @"block-a", @"block-b", @"bowtie", @"boar", @"boat", @"book", @"bookmark", @"neckbeard", @"metal", @"fu", @"feelsgood"];
 
-    
     self.bounces = YES;
     self.shakeToClearEnabled = YES;
     self.keyboardPanningEnabled = YES;
@@ -78,11 +89,6 @@ static NSString *AutoCompletionCellIdentifier = @"AutoCompletionCell";
     self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
     [self.tableView registerClass:[MessageTableViewCell class] forCellReuseIdentifier:MessengerCellIdentifier];
 
-    self.textView.placeholder = NSLocalizedString(@"Message", nil);
-    self.textView.placeholderColor = [UIColor lightGrayColor];
-    self.textView.layer.borderColor = [UIColor colorWithRed:217.0/255.0 green:217.0/255.0 blue:217.0/255.0 alpha:1.0].CGColor;
-    self.textView.pastableMediaTypes = SLKPastableMediaTypeAll;
-    
     [self.leftButton setImage:[UIImage imageNamed:@"icn_upload"] forState:UIControlStateNormal];
     [self.leftButton setTintColor:[UIColor grayColor]];
     
@@ -397,10 +403,12 @@ static NSString *AutoCompletionCellIdentifier = @"AutoCompletionCell";
     
     cell.titleLabel.text = message.username;
     cell.bodyLabel.text = message.text;
-    cell.tumbnailView.image = nil;
-    cell.attachmentView.image = message.attachment;
-    cell.attachmentView.layer.shouldRasterize = YES;
-    cell.attachmentView.layer.rasterizationScale = [UIScreen mainScreen].scale;
+    
+    if (message.attachment) {
+        cell.attachmentView.image = message.attachment;
+        cell.attachmentView.layer.shouldRasterize = YES;
+        cell.attachmentView.layer.rasterizationScale = [UIScreen mainScreen].scale;
+    }
     
     cell.indexPath = indexPath;
     cell.usedForMessage = YES;
@@ -525,7 +533,7 @@ static NSString *AutoCompletionCellIdentifier = @"AutoCompletionCell";
         
         [item appendString:@" "];
         
-        [self acceptAutoCompletionWithString:item];
+        [self acceptAutoCompletionWithString:item keepPrefix:YES];
     }
 }
 
@@ -536,6 +544,20 @@ static NSString *AutoCompletionCellIdentifier = @"AutoCompletionCell";
 {
     // Since SLKTextViewController uses UIScrollViewDelegate to update a few things, it is important that if you ovveride this method, to call super.
     [super scrollViewDidScroll:scrollView];
+}
+
+
+#pragma mark - UIScrollViewDelegate Methods
+
+/** UITextViewDelegate */
+- (BOOL)textView:(SLKTextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)text
+{
+    return [super textView:textView shouldChangeTextInRange:range replacementText:text];
+}
+
+- (void)textViewDidChangeSelection:(SLKTextView *)textView
+{
+    [super textViewDidChangeSelection:textView];
 }
 
 @end

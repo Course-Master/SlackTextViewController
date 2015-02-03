@@ -97,18 +97,6 @@ static NSTimeInterval kDeleteMaxTimeInterval = 0.5;
 }
 
 
-#pragma mark - Rendering
-
-- (void)drawRect:(CGRect)rect
-{
-    [super drawRect:rect];
-    
-    self.placeholderLabel.hidden = [self shouldHidePlaceholder];
-    self.placeholderLabel.frame = [self placeholderRectThatFits:self.bounds];
-    [self sendSubviewToBack:self.placeholderLabel];
-}
-
-
 #pragma mark - UIView Overrides
 
 - (CGSize)intrinsicContentSize
@@ -119,6 +107,22 @@ static NSTimeInterval kDeleteMaxTimeInterval = 0.5;
 + (BOOL)requiresConstraintBasedLayout
 {
     return YES;
+}
+
+- (void)layoutIfNeeded
+{
+    [super layoutIfNeeded];
+}
+
+- (void)layoutSubviews
+{
+    [super layoutSubviews];
+    
+    self.placeholderLabel.hidden = [self shouldHidePlaceholder];
+    if (!self.placeholderLabel.hidden) {
+        self.placeholderLabel.frame = [self placeholderRectThatFits:self.bounds];
+        [self sendSubviewToBack:self.placeholderLabel];
+    }
 }
 
 
@@ -343,6 +347,8 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
 - (void)setPlaceholder:(NSString *)placeholder
 {
     self.placeholderLabel.text = placeholder;
+    
+    [self setNeedsLayout];
 }
 
 - (void)setPlaceholderColor:(UIColor *)color
@@ -469,6 +475,13 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
 {
     if (SLK_IS_IOS8_AND_HIGHER) {
         [self deleteBackward];
+    }
+    
+    if (self.delegate && [self.delegate respondsToSelector:@selector(textView:shouldChangeTextInRange:replacementText:)]) {
+        NSRange range = self.selectedRange;
+        if (range.location > 0) range.location--;
+        if (range.length == 0 && self.text.length > 0) range.length++;
+        return [self.delegate textView:self shouldChangeTextInRange:range replacementText:@"^H"];
     }
     
     return self.hasText;
@@ -657,7 +670,7 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
     }
     
     if (self.placeholderLabel.hidden != [self shouldHidePlaceholder]) {
-        [self setNeedsDisplay];
+        [self setNeedsLayout];
     }
     
     [self flashScrollIndicatorsIfNeeded];

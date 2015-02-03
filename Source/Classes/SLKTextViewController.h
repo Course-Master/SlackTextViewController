@@ -24,8 +24,8 @@
 #import "UIView+SLKAdditions.h"
 
 /**
- UIKeyboard notification replacement, posting reliably only when showing/hiding the
- keyboard (not when resizing keyboard, or with inputAccessoryView reloads, etc.). Only triggered when using SLKTextViewController's text view.
+ UIKeyboard notification replacement, posting reliably only when showing/hiding the keyboard (not when resizing keyboard, or with inputAccessoryView reloads, etc).
+ Only triggered when using SLKTextViewController's text view.
  */
 extern NSString *const SLKKeyboardWillShowNotification;
 extern NSString *const SLKKeyboardDidShowNotification;
@@ -98,6 +98,7 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
 @property (nonatomic, readonly) UIButton *rightButton;
 
 
+#pragma mark - Initialization
 ///------------------------------------------------
 /// @name Initialization
 ///------------------------------------------------
@@ -141,6 +142,7 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
 + (UICollectionViewLayout *)collectionViewLayoutForCoder:(NSCoder *)decoder;
 
 
+#pragma mark - Keyboard Handling
 ///------------------------------------------------
 /// @name Keyboard Handling
 ///------------------------------------------------
@@ -168,8 +170,9 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
 - (void)didChangeKeyboardStatus:(SLKKeyboardStatus)status;
 
 
+#pragma mark - Interaction Notifications
 ///------------------------------------------------
-/// @name Text Typing Notifications
+/// @name Interaction Notifications
 ///------------------------------------------------
 
 /**
@@ -260,6 +263,7 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
 - (void)didPressArrowKey:(id)sender NS_REQUIRES_SUPER;
 
 
+#pragma mark - Text Edition
 ///------------------------------------------------
 /// @name Text Edition
 ///------------------------------------------------
@@ -292,6 +296,7 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
 - (void)didCancelTextEditing:(id)sender NS_REQUIRES_SUPER;
 
 
+#pragma mark - Text Auto-Completion
 ///------------------------------------------------
 /// @name Text Auto-Completion
 ///------------------------------------------------
@@ -339,7 +344,7 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
 - (CGFloat)heightForAutoCompletionView;
 
 /**
- Returns the maximum height for the autocompletion view. Default is 140.0.
+ Returns the maximum height for the autocompletion view. Default is 140 pts.
  You can override this method to return a custom max height.
 
  @return The autocompletion view's max height.
@@ -352,13 +357,23 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
 - (void)cancelAutoCompletion;
 
 /** 
- Accepts the autocompletion, replacing the detected key and word with a new string.
+ Accepts the autocompletion, replacing the detected word with a new string, keeping the prefix.
+ This method is an abstraction of -acceptAutoCompletionWithString:keepPrefix:
  
  @param string The string to be used for replacing autocompletion placeholders.
  */
 - (void)acceptAutoCompletionWithString:(NSString *)string;
 
+/**
+ Accepts the autocompletion, replacing the detected word with a new string, and optionally replacing the prefix too.
+ 
+ @param string The string to be used for replacing autocompletion placeholders.
+ @param keepPrefix YES if the prefix shouldn't be replaced.
+ */
+- (void)acceptAutoCompletionWithString:(NSString *)string keepPrefix:(BOOL)keepPrefix;
 
+
+#pragma mark - Text Caching
 ///------------------------------------------------
 /// @name Text Caching
 ///------------------------------------------------
@@ -385,6 +400,20 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
 + (void)clearAllCachedText;
 
 
+#pragma mark - Customization
+///------------------------------------------------
+/// @name Customization
+///------------------------------------------------
+/**
+ Registers a class for customizing the behavior and appearance of the text view.
+ You need to call this method inside of any initialization method.
+ 
+ @param textViewClass A SLKTextView subclass.
+ */
+- (void)registerClassForTextView:(Class)textViewClass;
+
+
+#pragma mark - Delegate Methods Requiring Super
 ///------------------------------------------------
 /// @name Delegate Methods Requiring Super
 ///------------------------------------------------

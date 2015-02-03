@@ -63,6 +63,9 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 // The setter of isExternalKeyboardDetected, for private use.
 @property (nonatomic, getter = isRotating) BOOL rotating;
 
+// The subclass of SLKTextView class to use
+@property (nonatomic, strong) Class textViewClass;
+
 @end
 
 @implementation SLKTextViewController
@@ -208,6 +211,8 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 - (void)viewWillLayoutSubviews
 {
     [super viewWillLayoutSubviews];
+    
+    [self adjustContentConfigurationIfNeeded];
 }
 
 - (void)viewDidLayoutSubviews
@@ -275,8 +280,8 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 - (SLKTextInputbar *)textInputbar
 {
     if (!_textInputbar)
-    {
-        _textInputbar = [SLKTextInputbar new];
+    {        
+        _textInputbar = [[SLKTextInputbar alloc] initWithTextViewClass:self.textViewClass];
         _textInputbar.translatesAutoresizingMaskIntoConstraints = NO;
         _textInputbar.controller = self;
         
@@ -409,7 +414,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     }
     
     if (self.isEditing) {
-        height += self.textInputbar.accessoryViewHeight;
+        height += self.textInputbar.editorContentViewHeight;
     }
     
     return roundf(height);
@@ -470,6 +475,27 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     
     if (height < 0) return 0;
     else return roundf(height);
+}
+
+- (CGFloat)topBarsHeight
+{
+    // No need to adjust if the edge isn't available
+    if ((self.edgesForExtendedLayout & UIRectEdgeTop) == 0) {
+        return 0.0;
+    }
+    
+    CGFloat height = CGRectGetHeight(self.navigationController.navigationBar.frame);
+    
+    if (SLK_IS_IPHONE && SLK_IS_LANDSCAPE && SLK_IS_IOS8_AND_HIGHER) {
+        return height;
+    }
+    
+    if (self.isPresentedInPopover) {
+        return height;
+    }
+    
+    height += CGRectGetHeight([UIApplication sharedApplication].statusBarFrame);
+    return height;
 }
 
 - (CGFloat)appropriateBottomMarginToWindow
@@ -589,13 +615,9 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     }
     
     _inverted = inverted;
-    
-    self.scrollViewProxy.transform = CGAffineTransformMake(1, 0, 0, inverted ? -1 : 1, 0, 0);
-    self.edgesForExtendedLayout = inverted ? UIRectEdgeNone : UIRectEdgeAll;
-    
-    if (!inverted && ((self.edgesForExtendedLayout & UIRectEdgeBottom) > 0)) {
-        self.edgesForExtendedLayout = self.edgesForExtendedLayout & ~UIRectEdgeBottom;
-    }
+
+    self.scrollViewProxy.transform = inverted ? CGAffineTransformMake(1, 0, 0, -1, 0, 0) : CGAffineTransformIdentity;
+    self.automaticallyAdjustsScrollViewInsets = inverted ? NO : YES;
 }
 
 - (void)setUndoShakingEnabled:(BOOL)enabled
@@ -1008,6 +1030,23 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     }
 }
 
+- (void)adjustContentConfigurationIfNeeded
+{
+    // When inverted, we need to substract the top bars height (generally status bar + navigation bar's) to align the top of the
+    // scrollview correctly to its top edge.
+    if (self.inverted) {
+        UIEdgeInsets contentInset = UIEdgeInsetsMake(0.0, 0.0, [self topBarsHeight], 0.0);
+        self.scrollViewProxy.contentInset = contentInset;
+        self.scrollViewProxy.scrollIndicatorInsets = contentInset;
+    }
+    
+    // Substracts the bottom edge rect if present. This fixes the text input layout when using inside of a view controller container
+    // such as a UITabBarController or a custom container
+    if (((self.edgesForExtendedLayout & UIRectEdgeBottom) > 0)) {
+        self.edgesForExtendedLayout = self.edgesForExtendedLayout & ~UIRectEdgeBottom;
+    }
+}
+
 - (void)prepareForInterfaceRotation
 {
     [self.view layoutIfNeeded];
@@ -1298,7 +1337,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
         return;
     }
     
-    self.typingIndicatorViewHC.constant = indicatorView.isVisible ?  0.0 : indicatorView.height;
+    self.typingIndicatorViewHC.constant = indicatorView.isVisible ?  0.0 : indicatorView.intrinsicContentSize.height;
     self.scrollViewHC.constant -= self.typingIndicatorViewHC.constant;
     
     [self.view slk_animateLayoutIfNeededWithBounce:self.bounces
@@ -1392,8 +1431,8 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
         }
         
         if (word.length > 0) {
-            // Removes the first character, containing the symbol prefix
-            _foundWord = [word substringFromIndex:1];
+            // Removes the found prefix
+            _foundWord = [word substringFromIndex:self.foundPrefix.length];
             
             // If the prefix is still contained in the word, cancels
             if ([self.foundWord rangeOfString:self.foundPrefix].location != NSNotFound) {
@@ -1424,13 +1463,28 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 
 - (void)acceptAutoCompletionWithString:(NSString *)string
 {
+    [self acceptAutoCompletionWithString:string keepPrefix:YES];
+}
+
+- (void)acceptAutoCompletionWithString:(NSString *)string keepPrefix:(BOOL)keepPrefix
+{
     if (string.length == 0) {
         return;
     }
     
     SLKTextView *textView = self.textView;
     
-    NSRange range = NSMakeRange(self.foundPrefixRange.location+1, self.foundWord.length);
+    NSUInteger location = self.foundPrefixRange.location;
+    if (keepPrefix) {
+        location += self.foundPrefixRange.length;
+    }
+    
+    NSUInteger length = self.foundWord.length;
+    if (!keepPrefix) {
+        length += self.foundPrefixRange.length;
+    }
+    
+    NSRange range = NSMakeRange(location, length);
     NSRange insertionRange = [textView slk_insertText:string inRange:range];
     
     textView.selectedRange = NSMakeRange(insertionRange.location, 0);
@@ -1472,17 +1526,6 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     }
     
     CGFloat tableHeight = self.scrollViewHC.constant + self.autoCompletionViewHC.constant;
-    
-    // Only when the view extends its layout beyond it top edge
-    if ((self.edgesForExtendedLayout & UIRectEdgeTop) > 0) {
-        
-        // On iOS7, the status bar isn't automatically hidden on landscape orientation
-        if (SLK_IS_IPHONE && SLK_IS_LANDSCAPE && !SLK_IS_IOS8_AND_HIGHER) {
-            tableHeight -= CGRectGetHeight([UIApplication sharedApplication].statusBarFrame);
-        }
-        
-        tableHeight -= CGRectGetHeight(self.navigationController.navigationBar.frame);
-    }
     
     // On iPhone, the autocompletion view can't extend beyond the table view height
     if (SLK_IS_IPHONE && viewHeight > tableHeight) {
@@ -1600,6 +1643,19 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     }
     
     [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+
+#pragma mark - Customization
+
+- (void)registerClassForTextView:(Class)textViewClass
+{
+    if (textViewClass == nil) {
+        return;
+    }
+    
+    NSAssert([textViewClass isSubclassOfClass:[SLKTextView class]], @"The registered class is invalid, it must be a subclass of SLKTextView.");
+    self.textViewClass = textViewClass;
 }
 
 
@@ -1758,7 +1814,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     self.scrollViewHC.constant = [self appropriateScrollViewHeight];
 
     if (self.isEditing) {
-        self.textInputbarHC.constant += self.textInputbar.accessoryViewHeight;
+        self.textInputbarHC.constant += self.textInputbar.editorContentViewHeight;
     }
 }
 
