@@ -101,7 +101,8 @@ static NSString *AutoCompletionCellIdentifier = @"AutoCompletionCell";
     self.textInputbar.autoHideRightButton = YES;
     self.textInputbar.maxCharCount = 256;
     self.textInputbar.counterStyle = SLKCounterStyleSplit;
-    
+    self.textInputbar.counterPosition = SLKCounterPositionTop;
+
     self.typingIndicatorView.canResignByTouch = YES;
     
     [self.autoCompletionView registerClass:[MessageTableViewCell class] forCellReuseIdentifier:AutoCompletionCellIdentifier];
@@ -328,22 +329,18 @@ static NSString *AutoCompletionCellIdentifier = @"AutoCompletionCell";
     
     self.searchResult = nil;
     
-    if ([prefix isEqualToString:@"@"])
-    {
-        array = self.users;
-        
+    if ([prefix isEqualToString:@"@"]) {
         if (word.length > 0) {
-            array = [array filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"self BEGINSWITH[c] %@", word]];
+            array = [self.users filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"self BEGINSWITH[c] %@", word]];
+        }
+        else {
+            array = self.users;
         }
     }
-    else if ([prefix isEqualToString:@"#"])
-    {
-        array = self.channels;
-        if (word.length > 0) {
-            array = [array filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"self BEGINSWITH[c] %@", word]];
-        }
+    else if ([prefix isEqualToString:@"#"] && word.length > 0) {
+        array = [self.channels filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"self BEGINSWITH[c] %@", word]];
     }
-    else if ([prefix isEqualToString:@":"] && word.length > 0) {
+    else if ([prefix isEqualToString:@":"] && word.length > 1) {
         array = [self.emojis filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"self BEGINSWITH[c] %@", word]];
     }
     
@@ -425,10 +422,10 @@ static NSString *AutoCompletionCellIdentifier = @"AutoCompletionCell";
         
         [LoremIpsum asyncPlaceholderImageWithSize:imgSize
                                        completion:^(UIImage *image) {
-                                           UIImage *tumbnail = [UIImage imageWithCGImage:image.CGImage scale:scale orientation:UIImageOrientationUp];
-                                           cell.tumbnailView.image = tumbnail;
-                                           cell.tumbnailView.layer.shouldRasterize = YES;
-                                           cell.tumbnailView.layer.rasterizationScale = [UIScreen mainScreen].scale;
+                                           UIImage *thumbnail = [UIImage imageWithCGImage:image.CGImage scale:scale orientation:UIImageOrientationUp];
+                                           cell.thumbnailView.image = thumbnail;
+                                           cell.thumbnailView.layer.shouldRasterize = YES;
+                                           cell.thumbnailView.layer.rasterizationScale = [UIScreen mainScreen].scale;
                                        }];
     }
     
@@ -527,7 +524,10 @@ static NSString *AutoCompletionCellIdentifier = @"AutoCompletionCell";
         
         NSMutableString *item = [self.searchResult[indexPath.row] mutableCopy];
         
-        if ([self.foundPrefix isEqualToString:@"@"] || [self.foundPrefix isEqualToString:@":"]) {
+        if ([self.foundPrefix isEqualToString:@"@"] && self.foundPrefixRange.location == 0) {
+            [item appendString:@":"];
+        }
+        else if ([self.foundPrefix isEqualToString:@":"]) {
             [item appendString:@":"];
         }
         

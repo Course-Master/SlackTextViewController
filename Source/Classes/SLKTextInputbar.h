@@ -22,7 +22,13 @@
 typedef NS_ENUM(NSUInteger, SLKCounterStyle) {
     SLKCounterStyleNone,
     SLKCounterStyleSplit,
-    SLKCounterStyleCountdown
+    SLKCounterStyleCountdown,
+    SLKCounterStyleCountdownReversed
+};
+
+typedef NS_ENUM(NSUInteger, SLKCounterPosition) {
+    SLKCounterPositionTop,
+    SLKCounterPositionBottom
 };
 
 /** @name A custom tool bar encapsulating messaging controls. */
@@ -35,7 +41,7 @@ typedef NS_ENUM(NSUInteger, SLKCounterStyle) {
  The maximum number of lines is configured by default, to best fit each devices dimensions.
  For iPhone 4       (<=480pts): 4 lines
  For iPhone 5 & 6   (>=568pts): 6 lines
- For iPad           (>=768pts): 8 lines: 8 lines
+ For iPad           (>=768pts): 8 lines
  */
 @property (nonatomic, strong) SLKTextView *textView;
 
@@ -113,13 +119,25 @@ typedef NS_ENUM(NSUInteger, SLKCounterStyle) {
 /// @name Text Counting
 ///------------------------------------------------
 
+/** The label used to display the character counts. */
+@property (nonatomic, readonly) UILabel *charCountLabel;
+
 /** The maximum character count allowed. If larger than 0, a character count label will be displayed on top of the right button. Default is 0, which means limitless.*/
 @property (nonatomic, readwrite) NSUInteger maxCharCount;
 
 /** The character counter formatting. Ignored if maxCharCount is 0. Default is None. */
 @property (nonatomic, assign) SLKCounterStyle counterStyle;
 
+/** The character counter layout style. Ignored if maxCharCount is 0. Default is SLKCounterPositionTop. */
+@property (nonatomic, assign) SLKCounterPosition counterPosition;
+
 /** YES if the maxmimum character count has been exceeded. */
 @property (nonatomic, readonly) BOOL limitExceeded;
+
+/** The normal color used for character counter label. Default is lightGrayColor. */
+@property (nonatomic, strong, readwrite) UIColor *charCountLabelNormalColor;
+
+/** The color used for character counter label when it has exceeded the limit. Default is redColor. */
+@property (nonatomic, strong, readwrite) UIColor *charCountLabelWarningColor;
 
 @end

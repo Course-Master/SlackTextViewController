@@ -22,18 +22,12 @@ NSString * const SLKTextViewTextWillChangeNotification =        @"SLKTextViewTex
 NSString * const SLKTextViewContentSizeDidChangeNotification =  @"SLKTextViewContentSizeDidChangeNotification";
 NSString * const SLKTextViewDidPasteItemNotification =          @"SLKTextViewDidPasteItemNotification";
 NSString * const SLKTextViewDidShakeNotification =              @"SLKTextViewDidShakeNotification";
-NSString * const SLKTextViewDidFinishDeletingNotification =     @"SLKTextViewDidFinishDeletingNotification";
 
 NSString * const SLKTextViewPastedItemContentType =             @"SLKTextViewPastedItemContentType";
 NSString * const SLKTextViewPastedItemMediaType =               @"SLKTextViewPastedItemMediaType";
 NSString * const SLKTextViewPastedItemData =                    @"SLKTextViewPastedItemData";
 
-static NSTimeInterval kDeleteMaxTimeInterval = 0.5;
-
 @interface SLKTextView ()
-{
-    NSTimeInterval _lastDeletionTimeInterval;
-}
 
 // The label used as placeholder
 @property (nonatomic, strong) UILabel *placeholderLabel;
@@ -49,9 +43,6 @@ static NSTimeInterval kDeleteMaxTimeInterval = 0.5;
 // Used for detecting if the scroll indicator was previously flashed
 @property (nonatomic) BOOL didFlashScrollIndicators;
 
-// Used to refresh the first responder's
-@property (nonatomic, strong) NSTimer *deletionTimer;
-
 @end
 
 @implementation SLKTextView
@@ -61,7 +52,7 @@ static NSTimeInterval kDeleteMaxTimeInterval = 0.5;
 - (instancetype)init
 {
     if (self = [super init]) {
-        [self commonInit];
+        [self slk_commonInit];
     }
     return self;
 }
@@ -69,12 +60,12 @@ static NSTimeInterval kDeleteMaxTimeInterval = 0.5;
 - (instancetype)initWithCoder:(NSCoder *)coder
 {
     if (self = [super initWithCoder:coder]) {
-        [self commonInit];
+        [self slk_commonInit];
     }
     return self;
 }
 
-- (void)commonInit
+- (void)slk_commonInit
 {
     self.placeholderColor = [UIColor lightGrayColor];
     self.pastableMediaTypes = SLKPastableMediaTypeNone;
@@ -89,9 +80,9 @@ static NSTimeInterval kDeleteMaxTimeInterval = 0.5;
     self.dataDetectorTypes = UIDataDetectorTypeNone;
     
     // UITextView notifications
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didBeginEditing:) name:UITextViewTextDidBeginEditingNotification object:nil];
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didChangeText:) name:UITextViewTextDidChangeNotification object:nil];
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didEndEditing:) name:UITextViewTextDidEndEditingNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(slk_didBeginEditing:) name:UITextViewTextDidBeginEditingNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(slk_didChangeText:) name:UITextViewTextDidChangeNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(slk_didEndEditing:) name:UITextViewTextDidEndEditingNotification object:nil];
     
     [self addObserver:self forKeyPath:NSStringFromSelector(@selector(contentSize)) options:NSKeyValueObservingOptionNew context:NULL];
 }
@@ -118,9 +109,9 @@ static NSTimeInterval kDeleteMaxTimeInterval = 0.5;
 {
     [super layoutSubviews];
     
-    self.placeholderLabel.hidden = [self shouldHidePlaceholder];
+    self.placeholderLabel.hidden = [self slk_shouldHidePlaceholder];
     if (!self.placeholderLabel.hidden) {
-        self.placeholderLabel.frame = [self placeholderRectThatFits:self.bounds];
+        self.placeholderLabel.frame = [self slk_placeholderRectThatFits:self.bounds];
         [self sendSubviewToBack:self.placeholderLabel];
     }
 }
@@ -158,7 +149,7 @@ static NSTimeInterval kDeleteMaxTimeInterval = 0.5;
 
 - (NSUInteger)numberOfLines
 {
-    return abs(self.contentSize.height/self.font.lineHeight);
+    return fabs(self.contentSize.height/self.font.lineHeight);
 }
 
 // Returns a different number of lines when landscape and only on iPhone
@@ -170,10 +161,15 @@ static NSTimeInterval kDeleteMaxTimeInterval = 0.5;
     return _maxNumberOfLines;
 }
 
-// Returns only a supported pasted item
-- (id)pastedItem
+- (BOOL)isTypingSuggestionEnabled
 {
-    NSString *contentType = [self pasteboardContentType];
+    return (self.autocorrectionType == UITextAutocorrectionTypeNo) ? NO : YES;
+}
+
+// Returns only a supported pasted item
+- (id)slk_pastedItem
+{
+    NSString *contentType = [self slk_pasteboardContentType];
     NSData *data = [[UIPasteboard generalPasteboard] dataForPasteboardType:contentType];
 
     if (data && [data isKindOfClass:[NSData class]])
@@ -196,27 +192,27 @@ static NSTimeInterval kDeleteMaxTimeInterval = 0.5;
 }
 
 // Checks if any supported media found in the general pasteboard
-- (BOOL)isPasteboardItemSupported
+- (BOOL)slk_isPasteboardItemSupported
 {
-    if ([self pasteboardContentType].length > 0) {
+    if ([self slk_pasteboardContentType].length > 0) {
         return YES;
     }
     return NO;
 }
 
-- (NSString *)pasteboardContentType
+- (NSString *)slk_pasteboardContentType
 {
     NSArray *pasteboardTypes = [[UIPasteboard generalPasteboard] pasteboardTypes];
     NSMutableArray *subpredicates = [NSMutableArray new];
     
-    for (NSString *type in [self supportedMediaTypes]) {
+    for (NSString *type in [self slk_supportedMediaTypes]) {
         [subpredicates addObject:[NSPredicate predicateWithFormat:@"SELF == %@", type]];
     }
     
     return [[pasteboardTypes filteredArrayUsingPredicate:[NSCompoundPredicate orPredicateWithSubpredicates:subpredicates]] firstObject];
 }
 
-- (NSArray *)supportedMediaTypes
+- (NSArray *)slk_supportedMediaTypes
 {
     if (self.pastableMediaTypes == SLKPastableMediaTypeNone) {
         return nil;
@@ -312,7 +308,7 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
     return NO;
 }
 
-- (BOOL)shouldHidePlaceholder
+- (BOOL)slk_shouldHidePlaceholder
 {
     if (self.placeholder.length == 0 || self.text.length > 0) {
         return YES;
@@ -320,7 +316,7 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
     return NO;
 }
 
-- (CGRect)placeholderRectThatFits:(CGRect)bounds
+- (CGRect)slk_placeholderRectThatFits:(CGRect)bounds
 {
     CGRect rect = CGRectZero;
     rect.size = [self.placeholderLabel sizeThatFits:bounds.size];
@@ -330,15 +326,6 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
     rect.origin.x += padding;
     
     return rect;
-}
-
-- (NSTimer *)deletionTimer
-{
-    if (!_deletionTimer) {
-        _deletionTimer = [NSTimer timerWithTimeInterval:kDeleteMaxTimeInterval target:self selector:@selector(shouldRefreshFirstResponder:) userInfo:nil repeats:NO];
-        [[NSRunLoop currentRunLoop] addTimer:_deletionTimer forMode:NSRunLoopCommonModes];
-    }
-    return _deletionTimer;
 }
 
 
@@ -369,20 +356,16 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
     _undoManagerEnabled = enabled;
 }
 
-- (void)invalidateDeletionTimer
+- (void)setTypingSuggestionEnabled:(BOOL)enabled
 {
-    if (!_deletionTimer) {
+    if (self.isTypingSuggestionEnabled == enabled) {
         return;
     }
     
-    [_deletionTimer invalidate];
-    _deletionTimer = nil;
-}
-
-- (void)invalidateFastDeletion
-{
-    _fastDeleting = NO;
-    _lastDeletionTimeInterval = 0;
+    self.autocorrectionType = enabled ? UITextAutocorrectionTypeDefault : UITextAutocorrectionTypeNo;
+    self.spellCheckingType = enabled ? UITextSpellCheckingTypeDefault : UITextSpellCheckingTypeNo;
+    
+    [self refreshFirstResponder];
 }
 
 
@@ -391,7 +374,7 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
 - (void)setText:(NSString *)text
 {
     // Registers for undo management
-    [self prepareForUndo:@"Text Set"];
+    [self slk_prepareForUndo:@"Text Set"];
     
     [super setText:text];
     
@@ -401,26 +384,9 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
 - (void)setAttributedText:(NSAttributedString *)attributedText
 {
     // Registers for undo management
-    [self prepareForUndo:@"Attributed Text Set"];
+    [self slk_prepareForUndo:@"Attributed Text Set"];
     
     [super setAttributedText:attributedText];
-}
-
-// Safer cursor range (it sometimes exceeds the lenght of the text property).
-- (NSRange)selectedRange
-{
-    NSRange range = [super selectedRange];
-    NSString *text = self.text;
-
-    if (range.location > text.length) {
-        range.location = text.length;
-    }
-    
-    if (range.length > text.length) {
-        range.length = text.length;
-    }
-    
-    return range;
 }
 
 - (void)setFont:(UIFont *)font
@@ -445,46 +411,6 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
 - (void)insertText:(NSString *)text
 {
     [super insertText:text];
-    
-    [self invalidateFastDeletion];
-}
-
-- (void)deleteBackward
-{
-    // No need to call super on iOS8, or it will delete 2 characters at once
-    if (!SLK_IS_IOS8_AND_HIGHER) {
-        [super deleteBackward];
-    }
-    
-    NSTimeInterval deletionTimestamp = [[NSDate date] timeIntervalSince1970];
-    NSTimeInterval delta = roundf(100.0 * (deletionTimestamp - _lastDeletionTimeInterval)) / 100.0;
-    
-    _fastDeleting = (self.hasText && delta <= kDeleteMaxTimeInterval);
-    _lastDeletionTimeInterval = deletionTimestamp;
-
-    // Makes sure the first responder is refreshed when the user released the backward key
-    if (self.isFastDeleting) {
-        [self invalidateDeletionTimer];
-        [self deletionTimer];
-    }
-}
-
-// Used on iOS8 to trigger 'deleteBackward' since it's no longer called by super.
-// 'keyboardInputShouldDelete:' should be safe, since it doesn't call super, but it is still considered a private API.
-- (BOOL)keyboardInputShouldDelete:(__unused id <UITextInput>)textInput
-{
-    if (SLK_IS_IOS8_AND_HIGHER) {
-        [self deleteBackward];
-    }
-    
-    if (self.delegate && [self.delegate respondsToSelector:@selector(textView:shouldChangeTextInRange:replacementText:)]) {
-        NSRange range = self.selectedRange;
-        if (range.location > 0) range.location--;
-        if (range.length == 0 && self.text.length > 0) range.length++;
-        return [self.delegate textView:self shouldChangeTextInRange:range replacementText:@"^H"];
-    }
-    
-    return self.hasText;
 }
 
 
@@ -534,7 +460,7 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
         return YES;
     }
 
-    if (action == @selector(paste:) && [self isPasteboardItemSupported]) {
+    if (action == @selector(paste:) && [self slk_isPasteboardItemSupported]) {
         return YES;
     }
     
@@ -558,7 +484,7 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
 
 - (void)paste:(id)sender
 {
-    id pastedItem = [self pastedItem];
+    id pastedItem = [self slk_pastedItem];
     
     if ([pastedItem isKindOfClass:[NSDictionary class]])
     {
@@ -581,7 +507,7 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
 
 #pragma mark - Custom Actions
 
-- (void)flashScrollIndicatorsIfNeeded
+- (void)slk_flashScrollIndicatorsIfNeeded
 {
     if (self.numberOfLines == self.maxNumberOfLines+1) {
         if (!_didFlashScrollIndicators) {
@@ -592,31 +518,6 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
     else if (_didFlashScrollIndicators) {
         _didFlashScrollIndicators = NO;
     }
-}
-
-- (void)setTypingSuggestionEnabled:(BOOL)enabled
-{
-    if (self.isTypingSuggestionEnabled == enabled) {
-        return;
-    }
-
-    _typingSuggestionEnabled = enabled;
-    
-    self.autocorrectionType = enabled ? UITextAutocorrectionTypeDefault : UITextAutocorrectionTypeNo;
-    self.spellCheckingType = enabled ? UITextSpellCheckingTypeDefault : UITextSpellCheckingTypeNo;
-    
-    if (!self.isFastDeleting) {
-        [self refreshFirstResponder];
-    }
-}
-
-- (void)shouldRefreshFirstResponder:(NSTimer *)timer
-{
-    [self refreshFirstResponder];
-    [self invalidateDeletionTimer];
-    [self invalidateFastDeletion];
-    
-    [[NSNotificationCenter defaultCenter] postNotificationName:SLKTextViewDidFinishDeletingNotification object:self];
 }
 
 - (void)refreshFirstResponder
@@ -654,7 +555,7 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
 
 #pragma mark - Notification Events
 
-- (void)didBeginEditing:(NSNotification *)notification
+- (void)slk_didBeginEditing:(NSNotification *)notification
 {
     if (![notification.object isEqual:self]) {
         return;
@@ -663,20 +564,20 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
     // Do something
 }
 
-- (void)didChangeText:(NSNotification *)notification
+- (void)slk_didChangeText:(NSNotification *)notification
 {
     if (![notification.object isEqual:self]) {
         return;
     }
     
-    if (self.placeholderLabel.hidden != [self shouldHidePlaceholder]) {
+    if (self.placeholderLabel.hidden != [self slk_shouldHidePlaceholder]) {
         [self setNeedsLayout];
     }
     
-    [self flashScrollIndicatorsIfNeeded];
+    [self slk_flashScrollIndicatorsIfNeeded];
 }
 
-- (void)didEndEditing:(NSNotification *)notification
+- (void)slk_didEndEditing:(NSNotification *)notification
 {
     if (![notification.object isEqual:self]) {
         return;
@@ -719,13 +620,13 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
     
     _keyboardCommands = @[
          // Return
-         [UIKeyCommand keyCommandWithInput:@"\r" modifierFlags:UIKeyModifierShift action:@selector(didPressLineBreakKeys:)],
-         [UIKeyCommand keyCommandWithInput:@"\r" modifierFlags:UIKeyModifierAlternate action:@selector(didPressLineBreakKeys:)],
-         [UIKeyCommand keyCommandWithInput:@"\r" modifierFlags:UIKeyModifierControl action:@selector(didPressLineBreakKeys:)],
+         [UIKeyCommand keyCommandWithInput:@"\r" modifierFlags:UIKeyModifierShift action:@selector(slk_didPressLineBreakKeys:)],
+         [UIKeyCommand keyCommandWithInput:@"\r" modifierFlags:UIKeyModifierAlternate action:@selector(slk_didPressLineBreakKeys:)],
+         [UIKeyCommand keyCommandWithInput:@"\r" modifierFlags:UIKeyModifierControl action:@selector(slk_didPressLineBreakKeys:)],
          
          // Undo/Redo
-         [UIKeyCommand keyCommandWithInput:@"z" modifierFlags:UIKeyModifierCommand action:@selector(didPressCommandZKeys:)],
-         [UIKeyCommand keyCommandWithInput:@"z" modifierFlags:UIKeyModifierShift|UIKeyModifierCommand action:@selector(didPressCommandZKeys:)],
+         [UIKeyCommand keyCommandWithInput:@"z" modifierFlags:UIKeyModifierCommand action:@selector(slk_didPressCommandZKeys:)],
+         [UIKeyCommand keyCommandWithInput:@"z" modifierFlags:UIKeyModifierShift|UIKeyModifierCommand action:@selector(slk_didPressCommandZKeys:)],
          ];
     
     return _keyboardCommands;
@@ -734,14 +635,15 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
 
 #pragma mark Line Break
 
-- (void)didPressLineBreakKeys:(id)sender
+- (void)slk_didPressLineBreakKeys:(id)sender
 {
     [self slk_insertNewLineBreak];
 }
 
+
 #pragma mark Undo/Redo Text
 
-- (void)didPressCommandZKeys:(id)sender
+- (void)slk_didPressCommandZKeys:(id)sender
 {
     if (!self.undoManagerEnabled) {
         return;
@@ -773,25 +675,25 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
     UIKeyCommand *keyCommand = (UIKeyCommand *)sender;
     
     if ([keyCommand.input isEqualToString:UIKeyInputUpArrow]) {
-        [self moveCursorTodirection:UITextLayoutDirectionUp];
+        [self slk_moveCursorTodirection:UITextLayoutDirectionUp];
     }
     else if ([keyCommand.input isEqualToString:UIKeyInputDownArrow]) {
-        [self moveCursorTodirection:UITextLayoutDirectionDown];
+        [self slk_moveCursorTodirection:UITextLayoutDirectionDown];
     }
 }
 
-- (void)moveCursorTodirection:(UITextLayoutDirection)direction
+- (void)slk_moveCursorTodirection:(UITextLayoutDirection)direction
 {
     UITextPosition *start = (direction == UITextLayoutDirectionUp) ? self.selectedTextRange.start : self.selectedTextRange.end;
     
-    if ([self isNewVerticalMovementForPosition:start inDirection:direction]) {
+    if ([self slk_isNewVerticalMovementForPosition:start inDirection:direction]) {
         self.verticalMoveDirection = direction;
         self.verticalMoveStartCaretRect = [self caretRectForPosition:start];
     }
     
     if (start) {
         
-        UITextPosition *end = [self closestPositionToPosition:start inDirection:direction];
+        UITextPosition *end = [self slk_closestPositionToPosition:start inDirection:direction];
         
         if (end) {
             self.verticalMoveLastCaretRect = [self caretRectForPosition:end];
@@ -805,7 +707,7 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
 // Based on code from Ruben Cabaco
 // https://gist.github.com/rcabaco/6765778
 
-- (UITextPosition *)closestPositionToPosition:(UITextPosition *)position inDirection:(UITextLayoutDirection)direction
+- (UITextPosition *)slk_closestPositionToPosition:(UITextPosition *)position inDirection:(UITextLayoutDirection)direction
 {
     // Only up/down are implemented. No real need for left/right since that is native to UITextInput.
     NSParameterAssert(direction == UITextLayoutDirectionUp || direction == UITextLayoutDirectionDown);
@@ -853,7 +755,7 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
     return closestPosition;
 }
 
-- (BOOL)isNewVerticalMovementForPosition:(UITextPosition *)position inDirection:(UITextLayoutDirection)direction
+- (BOOL)slk_isNewVerticalMovementForPosition:(UITextPosition *)position inDirection:(UITextLayoutDirection)direction
 {
     CGRect caretRect = [self caretRectForPosition:position];
     BOOL noPreviousStartPosition = CGRectEqualToRect(self.verticalMoveStartCaretRect, CGRectZero);

@@ -40,7 +40,7 @@ typedef NS_ENUM(NSUInteger, SLKKeyboardStatus) {
 };
 
 /** @name A drop-in UIViewController subclass with a growing text input view and other useful messaging features. */
-NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController <UITextViewDelegate, UITableViewDelegate, UITableViewDataSource, UICollectionViewDelegate, UICollectionViewDataSource>
+NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController <UITextViewDelegate, UITableViewDelegate, UITableViewDataSource, UICollectionViewDelegate, UICollectionViewDataSource, UIGestureRecognizerDelegate, UIAlertViewDelegate>
 
 /** The main table view managed by the controller object. Created by default initializing with -init or initWithNibName:bundle: */
 @property (nonatomic, readonly) UITableView *tableView;
@@ -48,21 +48,26 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
 /** The main collection view managed by the controller object. Not nil if the controller is initialised with -initWithCollectionViewLayout: */
 @property (nonatomic, readonly) UICollectionView *collectionView;
 
+/** The main scroll view managed by the controller object. Not nil if the controller is initialised with -initWithScrollView: */
+@property (nonatomic, readonly) UIScrollView *scrollView;
+
 /** The bottom toolbar containing a text view and buttons. */
 @property (nonatomic, readonly) SLKTextInputbar *textInputbar;
 
 /** The typing indicator used to display user names horizontally. */
 @property (nonatomic, readonly) SLKTypingIndicatorView *typingIndicatorView;
 
-/** The single tap gesture used to dismiss the keyboard */
+/** A single tap gesture used to dismiss the keyboard. */
 @property (nonatomic, readonly) UIGestureRecognizer *singleTapGesture;
+
+/** A vertical pan gesture used for bringing the keyboard from the bottom. */
+@property (nonatomic, readonly) UIPanGestureRecognizer *verticalPanGesture;
 
 /** YES if control's animation should have bouncy effects. Default is YES. */
 @property (nonatomic, assign) BOOL bounces;
 
 /** YES if text view's content can be cleaned with a shake gesture. Default is NO. */
 @property (nonatomic, assign) BOOL shakeToClearEnabled;
-@property (nonatomic, assign) BOOL undoShakingEnabled DEPRECATED_MSG_ATTRIBUTE("Use -shakeToClearEnabled instead");
 
 /** YES if keyboard can be dismissed gradually with a vertical panning gesture. Default is YES. */
 @property (nonatomic, assign, getter = isKeyboardPanningEnabled) BOOL keyboardPanningEnabled;
@@ -110,7 +115,7 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
  @param style A constant that specifies the style of main table view that the controller object is to manage (UITableViewStylePlain or UITableViewStyleGrouped).
  @return An initialized SLKTextViewController object or nil if the object could not be created.
  */
-- (instancetype)initWithTableViewStyle:(UITableViewStyle)style;
+- (instancetype)initWithTableViewStyle:(UITableViewStyle)style NS_DESIGNATED_INITIALIZER;
 
 /**
  Initializes a collection view controller and configures the collection view with the provided layout.
@@ -119,12 +124,28 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
  @param layout The layout object to associate with the collection view. The layout controls how the collection view presents its cells and supplementary views.
  @return An initialized SLKTextViewController object or nil if the object could not be created.
  */
-- (instancetype)initWithCollectionViewLayout:(UICollectionViewLayout *)layout;
+- (instancetype)initWithCollectionViewLayout:(UICollectionViewLayout *)layout NS_DESIGNATED_INITIALIZER;
+
+/**
+ Initializes a text view controller to manage an arbitraty scroll view. The caller is responsible for configuration of the scroll view, including wiring the delegate.
+
+ @param a UISCrollView to be used as the main content area.
+ @return An initialized SLKTextViewController object or nil if the object could not be created.
+ */
+- (instancetype)initWithScrollView:(UIScrollView *)scrollView NS_DESIGNATED_INITIALIZER;
+
+/**
+ Initializes either a table or collection view controller.
+ You must override either +tableViewStyleForCoder: or +collectionViewLayoutForCoder: to define witch view to be layed out.
+ 
+ @param decoder An unarchiver object.
+ @return An initialized SLKTextViewController object or nil if the object could not be created.
+ */
+- (instancetype)initWithCoder:(NSCoder *)decoder NS_DESIGNATED_INITIALIZER;
 
 /**
  Returns the tableView style to be configured when using Interface Builder. Default is UITableViewStylePlain.
  You must override this method if you want to configure a tableView.
- You should not override -initWithCoder:
  
  @param decoder An unarchiver object.
  @return The tableView style to be used in the new instantiated tableView.
@@ -134,7 +155,6 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
 /**
  Returns the tableView style to be configured when using Interface Builder. Default is nil.
  You must override this method if you want to configure a collectionView.
- You should not override -initWithCoder:
  
  @param decoder An unarchiver object.
  @return The collectionView style to be used in the new instantiated collectionView.
@@ -212,14 +232,6 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
  @return YES if the right button can be pressed.
  */
 - (BOOL)canPressRightButton;
-
-/**
- Notifies the view controller when the user has pasted an image inside of the text view.
- You can override this method to perform additional tasks associated with image pasting.
- 
- @param image The image that has been pasted. Only JPG or PNG are supported.
- */
-- (void)didPasteImage:(UIImage *)image DEPRECATED_MSG_ATTRIBUTE("Use -didPasteMediaContent: instead");
 
 /** 
  Notifies the view controller when the user has pasted a supported media content (images and/or videos).
@@ -404,6 +416,7 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
 ///------------------------------------------------
 /// @name Customization
 ///------------------------------------------------
+
 /**
  Registers a class for customizing the behavior and appearance of the text view.
  You need to call this method inside of any initialization method.

@@ -18,10 +18,8 @@
 
 extern NSString * const SLKTextViewTextWillChangeNotification;
 extern NSString * const SLKTextViewContentSizeDidChangeNotification;
-extern NSString * const SLKTextViewDidPasteImageNotification DEPRECATED_ATTRIBUTE;
 extern NSString * const SLKTextViewDidPasteItemNotification;
 extern NSString * const SLKTextViewDidShakeNotification;
-extern NSString * const SLKTextViewDidFinishDeletingNotification;
 
 extern NSString * const SLKTextViewPastedItemContentType;
 extern NSString * const SLKTextViewPastedItemMediaType;
@@ -43,10 +41,10 @@ typedef NS_OPTIONS(NSUInteger, SLKPastableMediaType) {
 /** @name A custom text input view. */
 @interface SLKTextView : UITextView
 
-/** The placeholder text string. */
+/** The placeholder text string. Default is nil. */
 @property (nonatomic, copy) NSString *placeholder;
 
-/** The placeholder color. */
+/** The placeholder color. Default is lightGrayColor. */
 @property (nonatomic, copy) UIColor *placeholderColor;
 
 /** The maximum number of lines before enabling scrolling. Default is 0 wich means limitless. */
@@ -72,9 +70,6 @@ typedef NS_OPTIONS(NSUInteger, SLKPastableMediaType) {
 
 /** YES if the text view supports undoing, either using UIMenuController, or with ctrl+z when using an external keyboard. Default is YES. */
 @property (nonatomic, readwrite) BOOL undoManagerEnabled;
-
-/** */
-@property (nonatomic, getter=isFastDeleting) BOOL fastDeleting;
 
 /**
  Some text view properties don't update when it's already firstResponder (auto-correction, spelling-check, etc.)
