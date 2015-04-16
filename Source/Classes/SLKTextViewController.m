@@ -523,6 +523,10 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     
     CGFloat bottomMargin = bottomWindow - bottomView;
     
+    if ([self respondsToSelector:@selector(ECForumPostDetailCommentingViewController_navHeight)]) {
+        bottomMargin -= 44;
+    }
+    
     if (SLK_IS_IPAD && self.modalPresentationStyle == UIModalPresentationFormSheet) {
         
         // Needs to convert the status bar's frame to the correct coordinate space
