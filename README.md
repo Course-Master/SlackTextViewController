@@ -1,11 +1,11 @@
 #SlackTextViewController
 
-[![Build Status](https://travis-ci.org/slackhq/SlackTextViewController.svg)](https://travis-ci.org/slackhq/SlackTextViewController)
-[![Coverage Status](https://coveralls.io/repos/slackhq/SlackTextViewController/badge.svg)](https://coveralls.io/r/slackhq/SlackTextViewController)
+[![Build Status](https://img.shields.io/travis/slackhq/SlackTextViewController.svg?style=flat-square)](https://travis-ci.org/slackhq/SlackTextViewController)
+[![Coverage Status](https://img.shields.io/coveralls/slackhq/SlackTextViewController/master.svg?style=flat-square)](https://coveralls.io/r/slackhq/SlackTextViewController)
 
-[![Carthage compatible](https://img.shields.io/badge/carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage)
-[![Pod Version](http://img.shields.io/cocoapods/v/SlackTextViewController.svg)](https://cocoadocs.org/docsets/SlackTextViewController)
-[![License](http://img.shields.io/badge/license-apache%202.0-blue.svg)](http://opensource.org/licenses/Apache2.0)
+[![Pod Version](http://img.shields.io/cocoapods/v/SlackTextViewController.svg?style=flat-square)](https://cocoadocs.org/docsets/SlackTextViewController)
+[![Carthage compatible](https://img.shields.io/badge/carthage-compatible-F5B369.svg?style=flat-square)](https://github.com/Carthage/Carthage)
+[![License](http://img.shields.io/badge/license-apache%202.0-blue.svg?style=flat-square)](http://opensource.org/licenses/Apache2.0)
 
 
 A drop-in UIViewController subclass with a growing text input view and other useful messaging features. Meant to be a replacement for UITableViewController & UICollectionViewController.
@@ -48,10 +48,20 @@ This library is used in Slack's iOS app. It was built to fit our needs, but is f
 
 ## Installation
 
-Available in [Cocoa Pods](http://cocoapods.org/?q=SlackTextViewController)
+###### With [Cocoa Pods](http://cocoapods.org):
 ```ruby
 pod 'SlackTextViewController'
 ```
+
+###### With [Carthage](https://github.com/Carthage/Carthage):
+```
+github "slackhq/SlackTextViewController"
+```
+
+###### Manually:
+There are two ways to do this:
+- Copy and drag the `Source/` folder to your project.
+- or compile the project located in `Builder/SlackTextViewController.xcodeproj` to create a `SlackTextViewController.framework` package. You could also [link the library into your project](https://developer.apple.com/library/ios/recipes/xcode_help-project_editor/Articles/AddingaLibrarytoaTarget.html#//apple_ref/doc/uid/TP40010155-CH17-SW1).
 
 ##How to use
 

@@ -108,15 +108,6 @@ describe(@"Growing Text View Tests", ^{
         return window;
     });
     
-    itShould(@"display the text input with multiple lines of text", ^{
-        
-        tvc.textView.text = [NSString sentencesWithNumber:5];
-        
-        expect(tvc.textView.numberOfLines).will.beGreaterThan(@10);
-        
-        return window;
-    });
-    
     itShould(@"empty the text input after hitting right button", ^{
         
         // Simulates pressing the right button
@@ -134,7 +125,8 @@ describe(@"Growing Text View Tests", ^{
 describe(@"Autocompletion Tests", ^{
     
     beforeEach(^{
-        [tvc.textView becomeFirstResponder];
+        [tvc presentKeyboard:NO];
+        
         [tvc.textView slk_clearText:YES];
         [tvc.textView slk_insertTextAtCaretRange:@"hello @"];
     });
@@ -168,6 +160,8 @@ describe(@"Autocompletion Tests", ^{
         expect(tvc.foundPrefix).to.beNil;
         expect(tvc.foundWord).to.beNil;
         expect(tvc.autoCompleting).to.beFalsy;
+        
+        expect(tvc.textView.text).to.equal(@"hello @Anna");
         
         return window;
     });
