@@ -147,9 +147,14 @@ NSString * const SLKTextInputbarDidMoveNotification =   @"SLKTextInputbarDidMove
         _textView.enablesReturnKeyAutomatically = YES;
         _textView.scrollIndicatorInsets = UIEdgeInsetsMake(0.0, -1.0, 0.0, 1.0);
         _textView.textContainerInset = UIEdgeInsetsMake(8.0, 4.0, 8.0, 0.0);
-        _textView.layer.cornerRadius = 5.0;
-        _textView.layer.borderWidth = 0.5;
-        _textView.layer.borderColor =  [UIColor colorWithRed:200.0/255.0 green:200.0/255.0 blue:205.0/255.0 alpha:1.0].CGColor;
+        _textView.backgroundColor = [UIColor clearColor];
+        self.backgroundColor = [UIColor blackColor];
+        self.alpha = 0.8;
+        _textView.textColor = [UIColor whiteColor];
+//        _textView.layer.cornerRadius = 5.0;
+//        _textView.layer.borderWidth = 0.5;
+//        _textView.layer.borderColor =  [UIColor colorWithRed:200.0/255.0 green:200.0/255.0 blue:205.0/255.0 alpha:1.0].CGColor;
+        
     }
     return _textView;
 }
@@ -365,7 +370,8 @@ NSString * const SLKTextInputbarDidMoveNotification =   @"SLKTextInputbarDidMove
             return 0.0;
         }
     }
-    return self.contentInset.right;
+    //increasing right margin by width of like button (40)
+    return self.contentInset.right + 40.0f;
 }
 
 - (NSUInteger)slk_defaultNumberOfLines
