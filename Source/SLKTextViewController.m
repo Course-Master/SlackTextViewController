@@ -2223,12 +2223,27 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
                             @"textInputbar": self.textInputbar,
                             };
     
-    [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[scrollView(0@750)][typingIndicatorView(0)]-0@999-[textInputbar(0)]|" options:0 metrics:nil views:views]];
+    [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:[scrollView(0@750)][typingIndicatorView(0)]-0@999-[textInputbar(0)]|" options:0 metrics:nil views:views]];
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|-(>=0)-[autoCompletionView(0@750)][typingIndicatorView]" options:0 metrics:nil views:views]];
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[scrollView]|" options:0 metrics:nil views:views]];
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[autoCompletionView]|" options:0 metrics:nil views:views]];
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[typingIndicatorView]|" options:0 metrics:nil views:views]];
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[textInputbar]|" options:0 metrics:nil views:views]];
+    
+    UIView *topView = [UIView new];
+    [topView setBackgroundColor:[UIColor whiteColor]];
+    [topView setTranslatesAutoresizingMaskIntoConstraints:NO];
+    [self.view addSubview:topView];
+    
+    self.topViewHC = [topView.heightAnchor constraintEqualToConstant:0.0];
+    
+    [NSLayoutConstraint activateConstraints:@[
+        [self.view.topAnchor constraintEqualToAnchor:topView.topAnchor],
+        [self.view.leftAnchor constraintEqualToAnchor:topView.leftAnchor],
+        [self.view.rightAnchor constraintEqualToAnchor:topView.rightAnchor],
+        [topView.bottomAnchor constraintEqualToAnchor:topView.topAnchor],
+        self.topViewHC
+    ]];
     
     self.scrollViewHC = [self.view slk_constraintForAttribute:NSLayoutAttributeHeight firstItem:self.scrollViewProxy secondItem:nil];
     self.autoCompletionViewHC = [self.view slk_constraintForAttribute:NSLayoutAttributeHeight firstItem:self.autoCompletionView secondItem:nil];
