@@ -2241,7 +2241,7 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
         [self.view.topAnchor constraintEqualToAnchor:topView.topAnchor],
         [self.view.leftAnchor constraintEqualToAnchor:topView.leftAnchor],
         [self.view.rightAnchor constraintEqualToAnchor:topView.rightAnchor],
-        [topView.bottomAnchor constraintEqualToAnchor:topView.topAnchor],
+        [topView.bottomAnchor constraintEqualToAnchor:scrollView.topAnchor],
         self.topViewHC
     ]];
     
